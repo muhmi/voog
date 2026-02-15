@@ -1,0 +1,27 @@
+[nuitka]
+main = "synth/__main__.py"
+output-filename = "voog"
+output-dir = "dist"
+
+onefile = true
+standalone = true
+
+enable-plugins = [
+    "tk-inter",
+]
+
+follow-imports = true
+assume-yes-for-downloads = true
+
+lto = "yes"
+jobs = "8"
+
+[nuitka.macos]
+create-app-bundle = true
+
+[nuitka.profiles.fast]
+lto = "no"
+
+[nuitka.profiles.release]
+lto = "yes"
+clang = true
