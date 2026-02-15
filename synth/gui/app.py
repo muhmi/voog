@@ -565,7 +565,7 @@ class SynthGUI(tk.Tk):
         else:
             row.columnconfigure((0, 1), weight=1)
 
-        # Glide + Status (left)
+        # Glide (left)
         gf = ttk.LabelFrame(row, text="GLIDE", padding=4)
         gf.grid(row=0, column=0, sticky="nsew", padx=2, pady=2)
         self.glide_panel: dict = {"frame": gf}
@@ -583,26 +583,20 @@ class SynthGUI(tk.Tk):
         time_knob.grid(row=1, column=0, padx=1)
         self.glide_panel["time"] = time_knob
 
-        self.voices_label = tk.Label(gf, text="Voices: 0/8", bg=BG_PANEL,
+        # Status + Logo (right)
+        sf = ttk.LabelFrame(row, text="STATUS", padding=6)
+        sf.grid(row=0, column=1, sticky="nsew", padx=2, pady=2)
+
+        self.voices_label = tk.Label(sf, text="Voices: 0/8", bg=BG_PANEL,
                                      fg=AMBER,
                                      font=("Helvetica", 13, "bold"))
-        self.voices_label.grid(row=0, column=1, rowspan=2, padx=20, pady=10)
-
-        # Logo panel (right) or STATUS fallback
         if self._logo_img:
-            lf = tk.Frame(row, bg=BG_PANEL, highlightbackground=BORDER,
-                          highlightthickness=1)
-            lf.grid(row=0, column=1, sticky="nsew", padx=2, pady=2)
-            tk.Label(lf, image=self._logo_img, bg=BG_PANEL,
-                     borderwidth=0).pack(expand=True, padx=10, pady=10)
+            self.voices_label.pack(side=tk.LEFT, padx=20, pady=10)
+            tk.Label(sf, image=self._logo_img, bg=BG_PANEL,
+                     borderwidth=0).pack(side=tk.RIGHT, expand=True,
+                                         padx=10, pady=10)
         else:
-            sf = ttk.LabelFrame(row, text="STATUS", padding=6)
-            sf.grid(row=0, column=1, sticky="nsew", padx=2, pady=2)
-            self.voices_label.grid_forget()
-            self.voices_label = tk.Label(sf, text="Voices: 0/8", bg=BG_PANEL,
-                                         fg=AMBER,
-                                         font=("Helvetica", 13, "bold"))
-            self.voices_label.pack(padx=10, pady=10)
+            self.voices_label.pack(expand=True, padx=10, pady=10)
 
         self._update_voices_display()
 
