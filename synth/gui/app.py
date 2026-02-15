@@ -288,8 +288,8 @@ class SynthGUI(tk.Tk):
                 icon_factor = max(1, icon_h // 48)
                 self._icon_img = raw.subsample(icon_factor)
                 self.iconphoto(True, self._icon_img)
-                # Panel logo: larger version (~120px tall)
-                target_h = 120
+                # Panel logo: large version (~240px tall)
+                target_h = 240
                 factor = max(1, icon_h // target_h)
                 if factor > 1:
                     self._logo_img = raw.subsample(factor)
@@ -560,25 +560,14 @@ class SynthGUI(tk.Tk):
         row.pack(fill=tk.X, padx=6, pady=2)
 
         if self._logo_img:
-            row.columnconfigure(0, weight=2)
-            row.columnconfigure((1, 2), weight=1)
+            row.columnconfigure(0, weight=1)
+            row.columnconfigure(1, weight=2)
         else:
             row.columnconfigure((0, 1), weight=1)
 
-        col = 0
-
-        # Logo panel (if available)
-        if self._logo_img:
-            lf = tk.Frame(row, bg=BG_PANEL, highlightbackground=BORDER,
-                          highlightthickness=1)
-            lf.grid(row=0, column=col, sticky="nsew", padx=2, pady=2)
-            tk.Label(lf, image=self._logo_img, bg=BG_PANEL,
-                     borderwidth=0).pack(expand=True, padx=10, pady=10)
-            col += 1
-
-        # Glide
+        # Glide + Status (left)
         gf = ttk.LabelFrame(row, text="GLIDE", padding=4)
-        gf.grid(row=0, column=col, sticky="nsew", padx=2, pady=2)
+        gf.grid(row=0, column=0, sticky="nsew", padx=2, pady=2)
         self.glide_panel: dict = {"frame": gf}
 
         cf, mvar = self._make_combo_row(
@@ -593,15 +582,28 @@ class SynthGUI(tk.Tk):
             command=lambda v: self._set_param("glide.time", v))
         time_knob.grid(row=1, column=0, padx=1)
         self.glide_panel["time"] = time_knob
-        col += 1
 
-        # Status
-        sf = ttk.LabelFrame(row, text="STATUS", padding=6)
-        sf.grid(row=0, column=col, sticky="nsew", padx=2, pady=2)
-        self.voices_label = tk.Label(sf, text="Voices: 0/8", bg=BG_PANEL,
+        self.voices_label = tk.Label(gf, text="Voices: 0/8", bg=BG_PANEL,
                                      fg=AMBER,
                                      font=("Helvetica", 13, "bold"))
-        self.voices_label.pack(padx=10, pady=10)
+        self.voices_label.grid(row=0, column=1, rowspan=2, padx=20, pady=10)
+
+        # Logo panel (right) or STATUS fallback
+        if self._logo_img:
+            lf = tk.Frame(row, bg=BG_PANEL, highlightbackground=BORDER,
+                          highlightthickness=1)
+            lf.grid(row=0, column=1, sticky="nsew", padx=2, pady=2)
+            tk.Label(lf, image=self._logo_img, bg=BG_PANEL,
+                     borderwidth=0).pack(expand=True, padx=10, pady=10)
+        else:
+            sf = ttk.LabelFrame(row, text="STATUS", padding=6)
+            sf.grid(row=0, column=1, sticky="nsew", padx=2, pady=2)
+            self.voices_label.grid_forget()
+            self.voices_label = tk.Label(sf, text="Voices: 0/8", bg=BG_PANEL,
+                                         fg=AMBER,
+                                         font=("Helvetica", 13, "bold"))
+            self.voices_label.pack(padx=10, pady=10)
+
         self._update_voices_display()
 
     # ── Virtual keyboard ────────────────────────────────────────────
