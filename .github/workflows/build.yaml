@@ -1,0 +1,136 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+        include:
+          - os: macos-latest
+            platform: macos
+            binary: voog
+          - os: ubuntu-latest
+            platform: linux
+            binary: voog
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install system deps (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk libportaudio2
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy sounddevice setuptools nuitka zstandard
+
+      - name: Build C extension
+        run: python setup.py build_ext --inplace
+
+      - name: Fix Tcl/Tk permissions (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          TCL_LIB=$(python -c "import tkinter; r=tkinter.Tk(); r.withdraw(); print(r.tk.eval('info library')); r.destroy()")
+          TK_LIB=$(python -c "import tkinter; r=tkinter.Tk(); r.withdraw(); print(r.tk.eval('set tk_library')); r.destroy()")
+          chmod -R u+w "$TCL_LIB" "$TK_LIB" 2>/dev/null || true
+
+      - name: Build with Nuitka
+        run: |
+          python -m nuitka \
+            --onefile \
+            --standalone \
+            --output-filename=voog \
+            --output-dir=dist \
+            --enable-plugin=tk-inter \
+            --follow-imports \
+            --python-flag=-m \
+            --jobs=4 \
+            --nofollow-import-to=numba \
+            --nofollow-import-to=llvmlite \
+            --assume-yes-for-downloads \
+            synth
+
+      - name: Verify binary
+        run: |
+          ls -lh dist/voog
+          file dist/voog
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: voog-${{ matrix.platform }}
+          path: dist/voog
+
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release-files
+          for platform in macos linux; do
+            if [ -f "artifacts/voog-$platform/voog" ]; then
+              cp "artifacts/voog-$platform/voog" "release-files/voog-$platform"
+              chmod +x "release-files/voog-$platform"
+            fi
+          done
+          echo "Release files:"
+          ls -lh release-files/
+
+      - name: Get version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+          else
+            VERSION="v$(date +'%Y.%m.%d')-${GITHUB_SHA::7}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "VOOG ${{ steps.version.outputs.version }}"
+          body: |
+            **VOOG Synthesizer** — standalone build
+
+            **Commit:** ${{ github.sha }}
+
+            **Downloads:**
+            - **macOS** (Apple Silicon): `voog-macos`
+            - **Linux** (x86_64): `voog-linux`
+
+            After downloading, make executable: `chmod +x voog-*`
+          files: release-files/*
+          draft: false
+          prerelease: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
