@@ -56,6 +56,10 @@ pip install numpy sounddevice
 # Optional: MIDI support
 pip install mido python-rtmidi
 
+# Optional: build C extension for better filter performance
+pip install setuptools
+make build-ext
+
 # macOS only: install tkinter if needed
 brew install python-tk@3.13
 ```
@@ -65,8 +69,8 @@ brew install python-tk@3.13
 ### GUI mode
 
 ```bash
-source .venv/bin/activate
-python -m synth --gui
+make run
+# or: python -m synth --gui
 ```
 
 ### CLI REPL mode
@@ -83,6 +87,16 @@ python -m synth
 --midi-port P  Connect to a specific MIDI port
 --no-midi      Start without MIDI input
 --list-midi    List available MIDI ports and exit
+```
+
+### Standalone binary
+
+Build a single-file executable (requires [Nuitka](https://nuitka.net/)):
+
+```bash
+pip install nuitka zstandard
+make distribute-fast    # ~14MB binary at dist/voog
+./dist/voog --gui
 ```
 
 ## Playing notes
@@ -141,31 +155,42 @@ All synth parameters use rotary knob controls:
 
 ```
 synth/
-├── dsp/            # Signal processing modules
-│   ├── oscillator  # Wavetable synthesis (sine, saw, square, triangle)
-│   ├── filter      # Moog ladder filter (24dB/oct, Huovilainen model)
-│   ├── envelope    # ADSR envelope generator
-│   ├── lfo         # Low-frequency oscillator
-│   ├── glide       # Pitch portamento
-│   └── noise       # White/pink noise generator
-├── engine/         # Audio engine
-│   ├── audio_engine  # Master engine, sounddevice output, MIDI routing
-│   ├── channel       # Multitimbral channel (patch + voice allocator)
-│   ├── voice         # Single voice (oscillators + filter + envelopes)
+├── dsp/               # Signal processing modules
+│   ├── oscillator     # Wavetable synthesis (sine, saw, square, triangle)
+│   ├── filter         # Moog ladder filter (C ext → Numba → pure Python)
+│   ├── _moog_filter_c # C extension for the Moog filter (optional)
+│   ├── envelope       # ADSR envelope generator
+│   ├── lfo            # Low-frequency oscillator
+│   ├── glide          # Pitch portamento
+│   └── noise          # White/pink noise generator
+├── engine/            # Audio engine
+│   ├── audio_engine   # Master engine, sounddevice output, MIDI routing
+│   ├── channel        # Multitimbral channel (patch + voice allocator)
+│   ├── voice          # Single voice (oscillators + filter + envelopes)
 │   └── voice_allocator  # Polyphonic allocation with voice stealing
-├── gui/            # Graphical interface
-│   └── app         # tkinter GUI with rotary knobs and virtual keyboard
-├── midi/           # MIDI support
-│   ├── midi_input  # MIDI port listener (mido/rtmidi)
-│   ├── midi_router # Message routing
-│   └── cc_map      # CC-to-parameter mapping
-├── patch/          # Patch system
-│   ├── patch       # Patch data structure
+├── gui/               # Graphical interface
+│   └── app            # tkinter GUI with rotary knobs and virtual keyboard
+├── midi/              # MIDI support
+│   ├── midi_input     # MIDI port listener (mido/rtmidi)
+│   ├── midi_router    # Message routing
+│   └── cc_map         # CC-to-parameter mapping
+├── patch/             # Patch system
+│   ├── patch          # Patch data structure
 │   ├── patch_manager  # Save/load to disk
 │   └── default_patches  # 19 built-in presets
-└── cli/            # Command-line interface
-    └── repl        # Interactive REPL
+└── cli/               # Command-line interface
+    └── repl           # Interactive REPL
 ```
+
+### Filter performance
+
+The Moog ladder filter is the main CPU bottleneck. Three backends are available, selected automatically at startup:
+
+| Backend | Dependency | Performance |
+|---------|-----------|-------------|
+| C extension | `make build-ext` | Best (~86% headroom) |
+| Numba JIT | `pip install numba` | Equal (~86% headroom) |
+| Pure Python | none | Baseline (~34% headroom) |
 
 ## License
 
