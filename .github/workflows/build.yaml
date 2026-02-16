@@ -40,7 +40,19 @@ jobs:
       - name: Install Python deps
         run: |
           python -m pip install --upgrade pip
-          pip install numpy sounddevice setuptools nuitka zstandard
+          pip install numpy sounddevice setuptools zstandard
+
+      - name: Install Nuitka
+        run: |
+          if [ -n "$NUITKA_TOKEN" ]; then
+            echo "Installing Nuitka Commercial..."
+            pip install "nuitka @ git+https://${NUITKA_TOKEN}@github.com/Nuitka/Nuitka-commercial.git/@main#egg=nuitka" || pip install nuitka
+          else
+            pip install nuitka
+          fi
+          python -m nuitka --version
+        env:
+          NUITKA_TOKEN: ${{ secrets.NUITKA_COMMERCIAL_PAT }}
 
       - name: Build C extension
         run: python setup.py build_ext --inplace
@@ -61,6 +73,7 @@ jobs:
             --output-dir=dist \
             --enable-plugin=tk-inter \
             --follow-imports \
+            --lto=yes \
             --python-flag=-m \
             --jobs=4 \
             --nofollow-import-to=numba \
